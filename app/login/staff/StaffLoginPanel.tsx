@@ -1,0 +1,124 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState, useTransition } from "react";
+import { motion } from "framer-motion";
+import { GraduationCap, Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
+
+interface StaffLoginPanelProps {
+  redirectPath: string;
+}
+
+const inputClasses =
+  "rounded-2xl border border-secondary/30 bg-white px-4 py-3 text-base text-text outline-none transition focus:border-secondary focus:ring-2 focus:ring-secondary/30";
+
+export default function StaffLoginPanel({ redirectPath }: StaffLoginPanelProps) {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          toast.error(data.error ?? "Unable to log in. Check your credentials.");
+          return;
+        }
+
+        toast.success("Welcome back to Career City!");
+        router.push(redirectPath);
+      } catch (error) {
+        console.error("Staff login error", error);
+        toast.error("Unexpected error during login. Please try again.");
+      }
+    });
+  };
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="flex w-full flex-col gap-8 rounded-3xl bg-white/90 p-10 text-left shadow-2xl backdrop-blur-xl"
+    >
+      <div className="flex items-center gap-4">
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/10 text-secondary">
+          <GraduationCap className="h-8 w-8" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-semibold text-text">Habib University Staff Login</h1>
+          <p className="text-sm text-text/70">
+            Coordinate the fair, track student visits, and manage corporate partnerships.
+          </p>
+        </div>
+      </div>
+
+      <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+        <label className="flex flex-col gap-2 text-sm font-medium text-text">
+          Email
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className={inputClasses}
+            placeholder="you@example.edu"
+          />
+        </label>
+
+        <label className="flex flex-col gap-2 text-sm font-medium text-text">
+          Password
+          <input
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className={inputClasses}
+            placeholder="Enter your password"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={isPending}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-secondary px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-lg transition duration-300 hover:bg-secondary/90 disabled:cursor-not-allowed disabled:opacity-80"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Signing In
+            </>
+          ) : (
+            "Sign In"
+          )}
+        </button>
+      </form>
+
+      <p className="text-sm text-text/70">
+        Need onboarding help?&nbsp;
+        <Link
+          href="mailto:career.city@habib.edu.pk"
+          className="font-semibold text-secondary transition hover:text-secondary/90"
+        >
+          Contact the Career City team
+        </Link>
+        .
+      </p>
+    </motion.section>
+  );
+}

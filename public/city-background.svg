@@ -1,0 +1,75 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sky gradient background -->
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="buildingGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4facfe;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#00f2fe;stop-opacity:0.5" />
+    </linearGradient>
+    <linearGradient id="buildingGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#43e97b;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#38f9d7;stop-opacity:0.5" />
+    </linearGradient>
+    <linearGradient id="buildingGradient3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fa709a;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#fee140;stop-opacity:0.5" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#skyGradient)"/>
+  
+  <!-- City buildings silhouette -->
+  <g opacity="0.6">
+    <!-- Building 1 -->
+    <rect x="100" y="600" width="150" height="480" fill="url(#buildingGradient1)" rx="5"/>
+    <rect x="115" y="620" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="150" y="620" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="185" y="620" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="115" y="670" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="150" y="670" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="185" y="670" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    
+    <!-- Building 2 -->
+    <rect x="280" y="500" width="180" height="580" fill="url(#buildingGradient2)" rx="5"/>
+    <rect x="300" y="530" width="30" height="35" fill="#ffffff" opacity="0.3"/>
+    <rect x="345" y="530" width="30" height="35" fill="#ffffff" opacity="0.3"/>
+    <rect x="390" y="530" width="30" height="35" fill="#ffffff" opacity="0.3"/>
+    
+    <!-- Building 3 -->
+    <rect x="490" y="650" width="140" height="430" fill="url(#buildingGradient3)" rx="5"/>
+    <rect x="510" y="680" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="550" y="680" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="590" y="680" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    
+    <!-- Building 4 -->
+    <rect x="1300" y="550" width="160" height="530" fill="url(#buildingGradient1)" rx="5"/>
+    <rect x="1320" y="580" width="28" height="32" fill="#ffffff" opacity="0.3"/>
+    <rect x="1365" y="580" width="28" height="32" fill="#ffffff" opacity="0.3"/>
+    <rect x="1410" y="580" width="28" height="32" fill="#ffffff" opacity="0.3"/>
+    
+    <!-- Building 5 -->
+    <rect x="1490" y="620" width="170" height="460" fill="url(#buildingGradient2)" rx="5"/>
+    <rect x="1510" y="650" width="30" height="35" fill="#ffffff" opacity="0.3"/>
+    <rect x="1560" y="650" width="30" height="35" fill="#ffffff" opacity="0.3"/>
+    <rect x="1610" y="650" width="30" height="35" fill="#ffffff" opacity="0.3"/>
+    
+    <!-- Building 6 -->
+    <rect x="1690" y="700" width="150" height="380" fill="url(#buildingGradient3)" rx="5"/>
+    <rect x="1710" y="730" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="1750" y="730" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+    <rect x="1790" y="730" width="25" height="30" fill="#ffffff" opacity="0.3"/>
+  </g>
+  
+  <!-- Decorative elements (stars/sparkles) -->
+  <circle cx="300" cy="150" r="3" fill="#ffffff" opacity="0.8"/>
+  <circle cx="600" cy="200" r="2" fill="#ffffff" opacity="0.6"/>
+  <circle cx="1200" cy="100" r="3" fill="#ffffff" opacity="0.8"/>
+  <circle cx="1600" cy="180" r="2" fill="#ffffff" opacity="0.7"/>
+  <circle cx="1400" cy="250" r="2.5" fill="#ffffff" opacity="0.6"/>
+  <circle cx="800" cy="120" r="2" fill="#ffffff" opacity="0.7"/>
+</svg>
