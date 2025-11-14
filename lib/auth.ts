@@ -12,8 +12,13 @@ export interface AuthTokenPayload extends JWTPayload {
 const resolvedSaltRounds = Number(process.env.BCRYPT_SALT_ROUNDS ?? 12);
 const SALT_ROUNDS = Number.isNaN(resolvedSaltRounds) ? 12 : resolvedSaltRounds;
 
-export const generateJWT = async (userId: string, role: UserRole) => {
-  return signJwt({ sub: userId, role });
+export const generateJWT = async (
+  userId: string,
+  role: UserRole,
+  expiresIn?: string | number
+) => {
+  const defaultTtl = process.env.JWT_EXPIRES_IN ?? "24h";
+  return signJwt({ sub: userId, role }, expiresIn ?? defaultTtl);
 };
 
 export const verifyJWT = async (token: string) => {

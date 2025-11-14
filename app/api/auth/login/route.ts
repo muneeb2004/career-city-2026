@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { comparePassword, generateJWT, UserRole } from "@/lib/auth";
+import { getAdminSettings } from "@/lib/settings";
 
 interface LoginRequestBody {
   email?: string;
@@ -44,7 +45,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     }
 
-    const token = await generateJWT(user.id, user.role as UserRole);
+    const adminSettings = await getAdminSettings();
+    const jwtTtlHours = adminSettings.jwtTtlHours;
+    const expiresIn = `${jwtTtlHours}h`;
+    const token = await generateJWT(user.id, user.role as UserRole, expiresIn);
 
     const response = NextResponse.json({
       token,
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: jwtTtlHours * 60 * 60,
     });
 
     return response;

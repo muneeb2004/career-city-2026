@@ -11,6 +11,12 @@ A modern, professional landing page application for Career City 2026 with smooth
 - **Centered CTA Button**: "Enter the City" button prominently placed at the center
 - **Smooth Animations**: Elegant entrance animations using Framer Motion
 
+### Admin Console (Phase 4)
+- **Global Toggles**: Configure event dates, announcement banners, and export defaults from `/dashboard/admin/settings` (super admins only)
+- **Security Controls**: Adjust JWT lifetimes and session timeout windows in one place; changes cascade to login flows automatically
+- **Live Banner Sync**: Announcements propagate instantly across dashboards with per-session dismissal and event window badges
+- **Responsive Ready**: Updated landing and welcome flows respect `prefers-reduced-motion`, reducing animation cost on low-power devices
+
 ### Welcome Page
 - **Smooth Morphing Transition**: The landing page morphs into the welcome page with blur and scale effects, giving a portal-entering feel
 - **Two User Type Options**:
@@ -104,6 +110,8 @@ To extend this application, you can:
 3. **Add Database**: Store user preferences and data
 4. **Add More Animations**: Enhance the user experience with additional transitions
 5. **Add Content**: Create dedicated sections for each user type
+
+> 📚 **Operational Guides**: Phase 4 ships with an [Admin Settings Playbook](docs/operations/admin-settings.md) and a [Regression Checklist](docs/operations/regression-checklist.md) covering responsive audits, security verification, and release testing.
 
 ## 🔧 Customization
 

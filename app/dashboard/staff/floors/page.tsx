@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -5,8 +6,25 @@ import { verifyJWT } from "@/lib/auth";
 import FloorsDashboardClient, {
   type FloorsDashboardClientProps,
 } from "@/app/dashboard/staff/floors/FloorsDashboardClient";
+import {
+  normalizeFloorRow,
+  type SupabaseCorporateClientRow,
+  type SupabaseFloorRow,
+} from "@/lib/types/floors";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Floor Management",
+  description: "Manage floor plans, stalls, and corporate assignments across Career City 2026.",
+  alternates: {
+    canonical: "/dashboard/staff/floors",
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function FloorsDashboardPage() {
   const cookieStore = await cookies();
@@ -54,26 +72,17 @@ export default async function FloorsDashboardPage() {
     console.error("Failed to load corporate clients for floors dashboard", clientsError);
   }
 
-  const floors: FloorsDashboardClientProps["floors"] = (floorRecords ?? []).map((floor: any) => ({
-    id: floor.id,
-    name: floor.name,
-    mapImageUrl: floor.map_image_url ?? "",
-    orderIndex: floor.order_index ?? 0,
-    createdAt: floor.created_at,
-  stalls: (floor.stalls ?? []).map((stall: any) => ({
-      id: stall.id,
-      identifier: stall.stall_identifier,
-      x: Number(stall.position?.x ?? 0),
-      y: Number(stall.position?.y ?? 0),
-      corporateClientId: stall.corporate_client_id ?? null,
-      corporateClientName: stall.corporate_client?.company_name ?? null,
-    })),
-  }));
+  const floors: FloorsDashboardClientProps["floors"] = (floorRecords ?? []).map((floor) =>
+    normalizeFloorRow(floor as unknown as SupabaseFloorRow)
+  );
 
-  const clients: FloorsDashboardClientProps["clients"] = (corporateClients ?? []).map((client: any) => ({
-    id: client.id,
-    companyName: client.company_name,
-  }));
+  const clients: FloorsDashboardClientProps["clients"] = (corporateClients ?? []).map((client) => {
+    const row = client as SupabaseCorporateClientRow;
+    return {
+      id: row.id,
+      companyName: row.company_name ?? "",
+    };
+  });
 
   return <FloorsDashboardClient role={staffRole} floors={floors} clients={clients} />;
 }

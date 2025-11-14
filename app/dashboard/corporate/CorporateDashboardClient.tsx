@@ -15,8 +15,12 @@ import {
   MapPinned,
   RefreshCcw,
   Trash2,
-  X,
 } from "lucide-react";
+import { LogoutButton } from "@/components/LogoutButton";
+import { useLogout } from "@/hooks/useLogout";
+import { useSessionTimeout } from "@/hooks/useSessionTimeout";
+import { extractErrorMessage, fetchJson } from "@/lib/client/api";
+import type { ExportFormat, ExportScope } from "@/lib/types/settings";
 
 export interface CorporateClientSummary {
   id: string;
@@ -56,6 +60,12 @@ interface CorporateDashboardClientProps {
   pageSize: number;
   initialHasMore: boolean;
   initialNextOffset: number;
+  sessionExpiresAt: number | null;
+  exportDefaults: {
+    scope: ExportScope;
+    format: ExportFormat;
+  };
+  sessionTimeoutWarningOffsetMs: number;
 }
 
 interface VisitsQueryResult {
@@ -76,8 +86,6 @@ interface VisitApiPayload {
   is_flagged: boolean;
   visited_at: string;
 }
-
-type ExportScope = "all" | "flagged";
 
 const MAJOR_OPTIONS = [
   "Computer Science",
@@ -138,19 +146,24 @@ export default function CorporateDashboardClient({
   pageSize,
   initialHasMore,
   initialNextOffset,
+  sessionExpiresAt,
+  exportDefaults,
+  sessionTimeoutWarningOffsetMs,
 }: CorporateDashboardClientProps) {
   const [visits, setVisits] = useState<StudentVisitUi[]>(initialVisits);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextOffset, setNextOffset] = useState(initialNextOffset);
-  const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(exportDefaults.scope === "flagged");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [exporting, setExporting] = useState<ExportScope | null>(null);
-  const [isMapOpen, setIsMapOpen] = useState(false);
   const [updatingVisitId, setUpdatingVisitId] = useState<string | null>(null);
   const [deletingVisitId, setDeletingVisitId] = useState<string | null>(null);
   const [isMajorDropdownOpen, setIsMajorDropdownOpen] = useState(false);
   const majorDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [searchValue, setSearchValue] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const isFirstSearchSyncRef = useRef(true);
   const [formState, setFormState] = useState({
     studentName: "",
     studentId: "",
@@ -189,143 +202,27 @@ export default function CorporateDashboardClient({
     };
   }, [isMajorDropdownOpen]);
 
-  const hasMap = Boolean(stall?.floor?.mapImageUrl);
-  const floorLabel = useMemo(() => {
-    if (!stall?.floor) {
-      return "Unknown floor";
-    }
-    return stall.floor.name ? `${stall.floor.name}` : `Floor ${stall.floor.id}`;
-  }, [stall?.floor]);
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      const normalized = searchValue.replace(/\s+/g, " ").trim();
+      setSearchQuery((previous) => (previous === normalized ? previous : normalized));
+    }, 350);
 
-  const fetchVisitsPage = useCallback(
-    async (offset: number, flagged: boolean): Promise<VisitsQueryResult> => {
-      const params = new URLSearchParams();
-      params.set("limit", String(pageSize));
-      params.set("offset", String(offset));
-      if (flagged) {
-        params.set("flagged", "true");
-      }
+    return () => window.clearTimeout(handler);
+  }, [searchValue]);
 
-      const response = await fetch(`/api/students/visits?${params.toString()}`);
+  const logout = useLogout("/login/corporate");
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        const message = (data as { error?: string }).error ?? "Unable to load student visits.";
-        throw new Error(message);
-      }
-
-      const data = (await response.json()) as {
-        visits: VisitApiPayload[];
-        hasMore: boolean;
-        nextOffset: number;
-      };
-
-      return {
-        visits: (data.visits ?? []).map(mapVisitFromApi),
-        hasMore: Boolean(data.hasMore),
-        nextOffset: Number.isFinite(data.nextOffset) ? data.nextOffset : offset,
-      };
+  useSessionTimeout({
+    expiresAt: sessionExpiresAt,
+    warningMessage: "Your session will expire soon. Save your progress to avoid losing notes.",
+    expirationMessage: "Your session has expired. Please sign in again.",
+    warningOffsetMs: sessionTimeoutWarningOffsetMs,
+    onExpire: async () => {
+      toast.error("Your session has expired. Please sign in again.");
+      await logout({ silent: true });
     },
-    [pageSize]
-  );
-
-  const reloadVisits = useCallback(
-    async (flagged: boolean, options?: { silent?: boolean }) => {
-      const silent = options?.silent ?? false;
-      if (!silent) {
-        setIsRefreshing(true);
-      }
-      try {
-        const result = await fetchVisitsPage(0, flagged);
-        setVisits(result.visits);
-        setHasMore(result.hasMore);
-        setNextOffset(result.nextOffset);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unexpected error while loading visits.";
-        toast.error(message);
-      } finally {
-        if (!silent) {
-          setIsRefreshing(false);
-        }
-      }
-    },
-    [fetchVisitsPage]
-  );
-
-  const handleToggleFlagFilter = useCallback(() => {
-    const nextValue = !showOnlyFlagged;
-    setShowOnlyFlagged(nextValue);
-    void reloadVisits(nextValue);
-  }, [reloadVisits, showOnlyFlagged]);
-
-  const handleRefresh = useCallback(() => {
-    void reloadVisits(showOnlyFlagged);
-  }, [reloadVisits, showOnlyFlagged]);
-
-  const handleLoadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore) {
-      return;
-    }
-
-    setIsLoadingMore(true);
-    try {
-      const result = await fetchVisitsPage(nextOffset, showOnlyFlagged);
-      setVisits((previous) => [...previous, ...result.visits]);
-      setHasMore(result.hasMore);
-      setNextOffset(result.nextOffset);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to load more visits.";
-      toast.error(message);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [fetchVisitsPage, hasMore, isLoadingMore, nextOffset, showOnlyFlagged]);
-
-  const handleExport = useCallback(
-    async (scope: ExportScope) => {
-      if (exporting) {
-        return;
-      }
-
-      setExporting(scope);
-      try {
-        const params = new URLSearchParams();
-        if (scope === "flagged") {
-          params.set("flagged", "true");
-        }
-
-        const query = params.toString();
-        const response = await fetch(
-          query ? `/api/students/visits/export?${query}` : "/api/students/visits/export"
-        );
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          const message = (data as { error?: string }).error ?? "Unable to export visits.";
-          throw new Error(message);
-        }
-
-        const blob = await response.blob();
-        const downloadUrl = URL.createObjectURL(blob);
-        const filename = extractFilename(response.headers.get("content-disposition"), "student-visits.csv");
-
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(downloadUrl);
-        toast.success("CSV download started.");
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unexpected export error.";
-        toast.error(message);
-      } finally {
-        setExporting(null);
-      }
-    },
-    [exporting]
-  );
+  });
 
   const resetForm = useCallback(() => {
     setFormState({
@@ -341,53 +238,242 @@ export default function CorporateDashboardClient({
     setIsMajorDropdownOpen(false);
   }, []);
 
+  const hasMap = Boolean(stall?.floor?.mapImageUrl);
+  const floorLabel = useMemo(() => {
+    if (!stall?.floor) {
+      return "Unknown floor";
+    }
+    return stall.floor.name ? `${stall.floor.name}` : `Floor ${stall.floor.id}`;
+  }, [stall?.floor]);
+
+  const isDefaultScopeAll = exportDefaults.scope === "all";
+
+  const emptyStateCopy = useMemo(() => {
+    if (searchQuery) {
+      return {
+        title: showOnlyFlagged ? "No flagged visits match your search." : "No visits match your search.",
+        subtitle: "Try different keywords or clear filters to see more students.",
+      };
+    }
+
+    if (showOnlyFlagged) {
+      return {
+        title: "No flagged visits yet.",
+        subtitle: "Flag students you want to follow up with and they will appear here.",
+      };
+    }
+
+    return {
+      title: "No visits logged yet.",
+      subtitle: "Start capturing conversations to build your follow-up pipeline.",
+    };
+  }, [searchQuery, showOnlyFlagged]);
+
+  const fetchVisitsPage = useCallback(
+    async (offset: number, flagged: boolean, searchTerm = ""): Promise<VisitsQueryResult> => {
+      const params = new URLSearchParams();
+      params.set("limit", String(pageSize));
+      params.set("offset", String(offset));
+      if (flagged) {
+        params.set("flagged", "true");
+      }
+      if (searchTerm) {
+        params.set("q", searchTerm);
+      }
+      const data = await fetchJson<{
+        visits: VisitApiPayload[];
+        hasMore: boolean;
+        nextOffset: number;
+      }>(
+        `/api/students/visits?${params.toString()}`,
+        undefined,
+        "Unable to load student visits."
+      );
+
+      return {
+        visits: (data.visits ?? []).map(mapVisitFromApi),
+        hasMore: Boolean(data.hasMore),
+        nextOffset: Number.isFinite(data.nextOffset) ? data.nextOffset : offset,
+      };
+    },
+    [pageSize]
+  );
+
+  const reloadVisits = useCallback(
+    async (flagged: boolean, searchTerm = "", options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        setIsRefreshing(true);
+      }
+      try {
+        const result = await fetchVisitsPage(0, flagged, searchTerm);
+        setVisits(result.visits);
+        setHasMore(result.hasMore);
+        setNextOffset(result.nextOffset);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unexpected error while loading visits.";
+        toast.error(message);
+      } finally {
+        if (!silent) {
+          setIsRefreshing(false);
+        }
+      }
+    },
+    [fetchVisitsPage]
+  );
+
+  useEffect(() => {
+    if (isFirstSearchSyncRef.current) {
+      isFirstSearchSyncRef.current = false;
+      return;
+    }
+
+    void reloadVisits(showOnlyFlagged, searchQuery);
+  }, [reloadVisits, searchQuery, showOnlyFlagged]);
+
+  const handleToggleFlagFilter = useCallback(() => {
+    const nextValue = !showOnlyFlagged;
+    setShowOnlyFlagged(nextValue);
+    void reloadVisits(nextValue, searchQuery);
+  }, [reloadVisits, searchQuery, showOnlyFlagged]);
+
+  const handleRefresh = useCallback(() => {
+    void reloadVisits(showOnlyFlagged, searchQuery);
+  }, [reloadVisits, searchQuery, showOnlyFlagged]);
+
+  const handleLoadMore = useCallback(async () => {
+    if (!hasMore || isLoadingMore) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchVisitsPage(nextOffset, showOnlyFlagged, searchQuery);
+      setVisits((previous) => [...previous, ...result.visits]);
+      setHasMore(result.hasMore);
+      setNextOffset(result.nextOffset);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load more visits.";
+      toast.error(message);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [fetchVisitsPage, hasMore, isLoadingMore, nextOffset, searchQuery, showOnlyFlagged]);
+
+  const handleExport = useCallback(
+    async (scope: ExportScope) => {
+      if (exporting) {
+        return;
+      }
+
+      setExporting(scope);
+
+      const exportVisits = async () => {
+        const params = new URLSearchParams();
+        if (scope === "flagged") {
+          params.set("flagged", "true");
+        }
+        if (searchQuery) {
+          params.set("q", searchQuery);
+        }
+
+        const query = params.toString();
+        const response = await fetch(
+          query ? `/api/students/visits/export?${query}` : "/api/students/visits/export"
+        );
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          const message = (data as { error?: string }).error ?? "Unable to export visits.";
+          throw new Error(message);
+        }
+
+        const blob = await response.blob();
+        const filename = extractFilename(
+          response.headers.get("content-disposition"),
+          scope === "flagged" ? "flagged-student-visits.csv" : "student-visits.csv"
+        );
+
+        return { blob, filename };
+      };
+
+      try {
+        const { blob, filename } = await toast.promise(exportVisits(), {
+          loading: "Preparing CSV...",
+          success: "CSV download started.",
+          error: (error) => extractErrorMessage(error, "Unable to export visits."),
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        const message = extractErrorMessage(error, "Unexpected export error.");
+        toast.error(message);
+        console.error("Export visits error", error);
+      } finally {
+        setExporting(null);
+      }
+    },
+    [exporting, searchQuery]
+  );
+
   const handleCreateVisit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
       startSubmit(async () => {
         try {
-          const response = await fetch("/api/students/visit", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              student_name: formState.studentName,
-              student_id: formState.studentId,
-              student_email: formState.studentEmail,
-              student_phone: formState.studentPhone.trim() ? formState.studentPhone.trim() : null,
-              student_batch: formState.studentBatch.trim(),
-              student_major: formState.studentMajor,
-              notes: formState.notes.trim() ? formState.notes.trim() : null,
-              is_flagged: formState.isFlagged,
-            }),
+          const createVisit = async () =>
+            fetchJson<{ visit: VisitApiPayload }>(
+              "/api/students/visit",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  student_name: formState.studentName,
+                  student_id: formState.studentId,
+                  student_email: formState.studentEmail,
+                  student_phone: formState.studentPhone.trim() ? formState.studentPhone.trim() : null,
+                  student_batch: formState.studentBatch.trim(),
+                  student_major: formState.studentMajor,
+                  notes: formState.notes.trim() ? formState.notes.trim() : null,
+                  is_flagged: formState.isFlagged,
+                }),
+              },
+              "Unable to save the visit."
+            );
+
+          const data = await toast.promise(createVisit(), {
+            loading: "Recording visit...",
+            success: "Student visit recorded.",
+            error: (error) => extractErrorMessage(error, "Unable to save the visit."),
           });
 
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            const message = (data as { error?: string }).error ?? "Unable to save the visit.";
-            toast.error(message);
-            return;
-          }
-
-          const data = (await response.json()) as { visit: VisitApiPayload };
           const newVisit = mapVisitFromApi(data.visit);
 
           if (showOnlyFlagged && !newVisit.isFlagged) {
             toast.success("Visit logged. It is hidden while the flagged filter is active.");
+          } else if (searchQuery) {
+            void reloadVisits(showOnlyFlagged, searchQuery, { silent: true });
           } else {
             setVisits((previous) => [newVisit, ...previous]);
             setNextOffset((previous) => previous + 1);
           }
-
-          toast.success("Student visit recorded.");
           resetForm();
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Unexpected error while saving the visit.";
+          const message = extractErrorMessage(error, "Unexpected error while saving the visit.");
           toast.error(message);
+          console.error("Create visit error", error);
         }
       });
     },
-    [formState, resetForm, showOnlyFlagged, startSubmit]
+    [formState, reloadVisits, resetForm, searchQuery, showOnlyFlagged, startSubmit]
   );
 
   const handleToggleFlagVisit = useCallback(
@@ -401,29 +487,34 @@ export default function CorporateDashboardClient({
       let needsRefetch = false;
 
       try {
-        const response = await fetch(`/api/students/visit/${visit.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            student_name: visit.studentName,
-            student_id: visit.studentId,
-            student_email: visit.studentEmail,
-            student_phone: visit.studentPhone,
-            student_batch: visit.studentBatch,
-            student_major: visit.studentMajor,
-            notes: visit.notes,
-            is_flagged: !visit.isFlagged,
-          }),
-        });
+          const toggleVisit = async () =>
+            fetchJson<{ visit: VisitApiPayload }>(
+              `/api/students/visit/${visit.id}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  student_name: visit.studentName,
+                  student_id: visit.studentId,
+                  student_email: visit.studentEmail,
+                  student_phone: visit.studentPhone,
+                  student_batch: visit.studentBatch,
+                  student_major: visit.studentMajor,
+                  notes: visit.notes,
+                  is_flagged: !visit.isFlagged,
+                }),
+              },
+              "Unable to update the visit."
+            );
 
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          const message = (data as { error?: string }).error ?? "Unable to update the visit.";
-          throw new Error(message);
-        }
+          const data = await toast.promise(toggleVisit(), {
+            loading: visit.isFlagged ? "Removing flag..." : "Flagging visit...",
+            success: (result) =>
+              result.visit.is_flagged ? "Visit flagged for follow-up." : "Flag removed.",
+            error: (error) => extractErrorMessage(error, "Unable to update the visit."),
+          });
 
-        const data = (await response.json()) as { visit: VisitApiPayload };
-        const updatedVisit = mapVisitFromApi(data.visit);
+          const updatedVisit = mapVisitFromApi(data.visit);
 
         if (showOnlyFlagged && !updatedVisit.isFlagged) {
           needsRefetch = true;
@@ -432,19 +523,18 @@ export default function CorporateDashboardClient({
             previous.map((entry) => (entry.id === updatedVisit.id ? updatedVisit : entry))
           );
         }
-
-        toast.success(updatedVisit.isFlagged ? "Visit flagged for follow-up." : "Flag removed.");
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unable to update the visit.";
-        toast.error(message);
+          const message = extractErrorMessage(error, "Unable to update the visit.");
+          toast.error(message);
+          console.error("Toggle visit flag error", error);
       } finally {
         setUpdatingVisitId(null);
         if (needsRefetch) {
-          void reloadVisits(showOnlyFlagged);
+          void reloadVisits(showOnlyFlagged, searchQuery);
         }
       }
     },
-    [reloadVisits, showOnlyFlagged]
+    [reloadVisits, searchQuery, showOnlyFlagged]
   );
 
   const handleDeleteVisit = useCallback(
@@ -455,23 +545,29 @@ export default function CorporateDashboardClient({
 
       setDeletingVisitId(visit.id);
       try {
-        const response = await fetch(`/api/students/visit/${visit.id}`, { method: "DELETE" });
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          const message = (data as { error?: string }).error ?? "Unable to delete the visit.";
-          throw new Error(message);
-        }
+          const deleteVisit = async () =>
+            fetchJson<{ success: boolean }>(
+              `/api/students/visit/${visit.id}`,
+              { method: "DELETE" },
+              "Unable to delete the visit."
+            );
 
-        toast.success("Visit deleted.");
-        await reloadVisits(showOnlyFlagged, { silent: false });
+          await toast.promise(deleteVisit(), {
+            loading: "Deleting visit...",
+            success: "Visit deleted.",
+            error: (error) => extractErrorMessage(error, "Unable to delete the visit."),
+          });
+
+          await reloadVisits(showOnlyFlagged, searchQuery, { silent: false });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unexpected error while deleting.";
-        toast.error(message);
+          const message = extractErrorMessage(error, "Unexpected error while deleting.");
+          toast.error(message);
+          console.error("Delete visit error", error);
       } finally {
         setDeletingVisitId(null);
       }
     },
-    [reloadVisits, showOnlyFlagged]
+    [reloadVisits, searchQuery, showOnlyFlagged]
   );
 
   return (
@@ -512,19 +608,21 @@ export default function CorporateDashboardClient({
                 </div>
               </div>
             </div>
-            {hasMap ? (
-              <button
-                type="button"
-                onClick={() => setIsMapOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-primary/90"
-              >
-                <MapPinned className="h-4 w-4" /> View Stall Map
-              </button>
-            ) : (
-              <div className="rounded-2xl bg-black/5 px-4 py-3 text-sm text-text/70">
-                Map preview will appear once your stall floor plan is uploaded.
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              {hasMap ? (
+                <Link
+                  href="/dashboard/corporate/map"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-primary/90"
+                >
+                  <MapPinned className="h-4 w-4" /> View Stall Map
+                </Link>
+              ) : (
+                <div className="rounded-2xl bg-black/5 px-4 py-3 text-sm text-text/70">
+                  Map preview will appear once your stall floor plan is uploaded.
+                </div>
+              )}
+              <LogoutButton redirectPath="/login/corporate" />
+            </div>
           </header>
         </section>
 
@@ -738,43 +836,81 @@ export default function CorporateDashboardClient({
                   : "Newest conversations appear first."}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleToggleFlagFilter}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  showOnlyFlagged
-                    ? "bg-secondary text-white shadow-lg"
-                    : "border border-primary/20 text-primary hover:border-primary/40 hover:text-primary/80"
-                }`}
-              >
-                {showOnlyFlagged ? <FlagOff className="h-4 w-4" /> : <Flag className="h-4 w-4" />}
-                {showOnlyFlagged ? "Show All" : "Only Flagged"}
-              </button>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end md:gap-4">
+              <div className="relative w-full md:w-64">
+                <input
+                  type="search"
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && searchValue) {
+                      event.preventDefault();
+                      setSearchValue("");
+                    }
+                  }}
+                  className="w-full rounded-full border border-primary/20 bg-white/70 px-4 py-2 text-sm text-text shadow-sm transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="Search by name, email, ID, or notes"
+                  aria-label="Search student visits"
+                  inputMode="search"
+                  spellCheck={false}
+                />
+                {searchValue ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchValue("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary/70 transition hover:text-primary"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
 
-              <button
-                type="button"
-                disabled={exporting === "all"}
-                onClick={() => void handleExport("all")}
-                className="inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-2 text-sm font-semibold text-primary transition hover:border-primary/40 hover:text-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {exporting === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                Export All
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleToggleFlagFilter}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    showOnlyFlagged
+                      ? "bg-secondary text-white shadow-lg"
+                      : "border border-primary/20 text-primary hover:border-primary/40 hover:text-primary/80"
+                  }`}
+                >
+                  {showOnlyFlagged ? <FlagOff className="h-4 w-4" /> : <Flag className="h-4 w-4" />}
+                  {showOnlyFlagged ? "Show All" : "Only Flagged"}
+                </button>
 
-              <button
-                type="button"
-                disabled={exporting === "flagged"}
-                onClick={() => void handleExport("flagged")}
-                className="inline-flex items-center gap-2 rounded-full border border-secondary/30 px-4 py-2 text-sm font-semibold text-secondary transition hover:border-secondary/50 hover:text-secondary/80 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {exporting === "flagged" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                Export Flagged
-              </button>
+                <button
+                  type="button"
+                  disabled={exporting === "all"}
+                  onClick={() => void handleExport("all")}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isDefaultScopeAll
+                      ? "bg-primary text-white shadow-lg hover:bg-primary/90"
+                      : "border border-primary/20 text-primary hover:border-primary/40 hover:text-primary/80"
+                  }`}
+                >
+                  {exporting === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Export All
+                </button>
+
+                <button
+                  type="button"
+                  disabled={exporting === "flagged"}
+                  onClick={() => void handleExport("flagged")}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isDefaultScopeAll
+                      ? "border border-secondary/30 text-secondary hover:border-secondary/50 hover:text-secondary/80"
+                      : "bg-secondary text-white shadow-lg hover:bg-secondary/90"
+                  }`}
+                >
+                  {exporting === "flagged" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Export Flagged
+                </button>
+              </div>
             </div>
           </div>
 
@@ -789,10 +925,8 @@ export default function CorporateDashboardClient({
               <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-primary/30 p-10 text-center text-text/70">
                 <AlertTriangle className="h-8 w-8 text-primary" />
                 <div>
-                  <p className="font-semibold text-text">No visits logged yet.</p>
-                  <p className="text-sm">
-                    Start capturing conversations to build your follow-up pipeline.
-                  </p>
+                  <p className="font-semibold text-text">{emptyStateCopy.title}</p>
+                  <p className="text-sm">{emptyStateCopy.subtitle}</p>
                 </div>
               </div>
             ) : (
@@ -916,52 +1050,6 @@ export default function CorporateDashboardClient({
           </Link>
         </section>
       </div>
-
-      <AnimatePresence>
-        {isMapOpen && stall?.floor?.mapImageUrl && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl"
-            >
-              <button
-                type="button"
-                onClick={() => setIsMapOpen(false)}
-                className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
-                aria-label="Close map"
-              >
-                <X className="h-5 w-5" />
-              </button>
-              <div className="relative max-h-[80vh] overflow-auto">
-                <img
-                  src={stall.floor.mapImageUrl}
-                  alt={`Floor map for ${corporateClient.companyName}`}
-                  className="h-full w-full object-contain"
-                  loading="lazy"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-4 border-t border-black/10 bg-white px-6 py-4 text-sm text-text/70">
-                <div>
-                  <p className="font-semibold text-text">{corporateClient.companyName}</p>
-                  <p>{stall.identifier ? `Stall ${stall.identifier}` : "Stall location"}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-text/60">
-                  {stall.position && <span>Position {stall.position}</span>}
-                  <span>{floorLabel}</span>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }

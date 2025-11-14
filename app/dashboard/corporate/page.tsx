@@ -7,6 +7,7 @@ import CorporateDashboardClient, {
 } from "./CorporateDashboardClient";
 import { verifyJWT } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getAdminSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,23 @@ export default async function CorporateDashboardPage() {
   if (payload.role !== "corporate") {
     redirect("/welcome");
   }
+
+  const adminSettings = await getAdminSettings();
+  const defaultExportScope = adminSettings.defaultExportScope;
+  const defaultExportFormat = adminSettings.defaultExportFormat;
+  const sessionTimeoutMinutes = adminSettings.sessionTimeoutMinutes;
+
+  const computeWarningOffsetMinutes = (timeoutMinutes: number) => {
+    if (!Number.isFinite(timeoutMinutes) || timeoutMinutes <= 6) {
+      return Math.max(Math.trunc(timeoutMinutes) - 1, 1);
+    }
+    return Math.trunc(timeoutMinutes) - 5;
+  };
+
+  const sessionWarningOffsetMs = Math.max(
+    computeWarningOffsetMinutes(sessionTimeoutMinutes),
+    1
+  ) * 60 * 1000;
 
   const {
     data: corporateClient,
@@ -72,19 +90,24 @@ export default async function CorporateDashboardPage() {
     console.error("Failed to load stall information", stallError);
   }
 
-  const {
-    data: visits,
-    error: visitsError,
-    count: visitsCount,
-  } = await supabaseAdmin
+  let visitsQuery = supabaseAdmin
     .from("student_visits")
     .select(
       "id, student_name, student_id, student_email, student_phone, student_batch, student_major, notes, is_flagged, visited_at",
       { count: "exact" }
     )
     .eq("corporate_client_id", corporateClient.id)
-    .order("visited_at", { ascending: false })
-    .range(0, INITIAL_PAGE_SIZE - 1);
+    .order("visited_at", { ascending: false });
+
+  if (defaultExportScope === "flagged") {
+    visitsQuery = visitsQuery.eq("is_flagged", true);
+  }
+
+  const {
+    data: visits,
+    error: visitsError,
+    count: visitsCount,
+  } = await visitsQuery.range(0, INITIAL_PAGE_SIZE - 1);
 
   if (visitsError) {
     console.error("Failed to load student visits", visitsError);
@@ -142,6 +165,9 @@ export default async function CorporateDashboardPage() {
       pageSize={INITIAL_PAGE_SIZE}
       initialHasMore={initialHasMore}
       initialNextOffset={initialNextOffset}
+      sessionExpiresAt={(payload.exp as number | undefined) ?? null}
+  exportDefaults={{ scope: defaultExportScope, format: defaultExportFormat }}
+      sessionTimeoutWarningOffsetMs={sessionWarningOffsetMs}
     />
   );
 }

@@ -6,6 +6,7 @@ import { FormEvent, useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { extractErrorMessage, fetchJson } from "@/lib/client/api";
 
 interface StaffLoginPanelProps {
   redirectPath: string;
@@ -24,24 +25,26 @@ export default function StaffLoginPanel({ redirectPath }: StaffLoginPanelProps) 
     event.preventDefault();
 
     startTransition(async () => {
+      const loginRequest = async () =>
+        fetchJson<{ token: string }>(
+          "/api/auth/login",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          },
+          "Unable to log in. Check your credentials."
+        );
+
       try {
-        const response = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+        await toast.promise(loginRequest(), {
+          loading: "Signing you in...",
+          success: "Welcome back to Career City!",
+          error: (error) => extractErrorMessage(error, "Unable to log in. Please try again."),
         });
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          toast.error(data.error ?? "Unable to log in. Check your credentials.");
-          return;
-        }
-
-        toast.success("Welcome back to Career City!");
         router.push(redirectPath);
       } catch (error) {
         console.error("Staff login error", error);
-        toast.error("Unexpected error during login. Please try again.");
       }
     });
   };

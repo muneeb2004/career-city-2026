@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { extractErrorMessage, fetchJson } from "@/lib/client/api";
 
 interface SuperAdminSetupPanelProps {
   redirectPath: string;
@@ -29,25 +30,26 @@ export default function SuperAdminSetupPanel({ redirectPath }: SuperAdminSetupPa
     }
 
     startTransition(async () => {
+      const signupRequest = async () =>
+        fetchJson<{ token: string }>(
+          "/api/auth/signup",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          },
+          "Unable to complete setup. Please try again."
+        );
+
       try {
-        const response = await fetch("/api/auth/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+        await toast.promise(signupRequest(), {
+          loading: "Creating super admin...",
+          success: "Super Admin account created. Redirecting to the dashboard.",
+          error: (error) => extractErrorMessage(error, "Unable to complete setup. Please try again."),
         });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          toast.error(data.error ?? "Unable to complete setup. Please try again.");
-          return;
-        }
-
-        toast.success("Super Admin account created. Redirecting to the dashboard.");
         router.push(redirectPath || "/dashboard/staff");
       } catch (error) {
         console.error("Super admin setup error", error);
-        toast.error("Unexpected error during setup. Please try again.");
       }
     });
   };

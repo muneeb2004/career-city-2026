@@ -48,7 +48,11 @@ interface UpdateStaffBody {
   role?: UserRole;
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const params = await context.params;
   const auth = await requireSuperAdmin(request);
   if ("error" in auth) {
     return auth.error;
@@ -157,7 +161,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   return NextResponse.json({ user: updatedUser });
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const params = await context.params;
   const auth = await requireSuperAdmin(request);
   if ("error" in auth) {
     return auth.error;

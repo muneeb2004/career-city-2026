@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const corporateIdParam = searchParams.get("corporate_id")?.trim() ?? undefined;
   const flaggedParam = searchParams.get("flagged")?.toLowerCase() === "true";
+  const rawSearchParam =
+    searchParams.get("q")?.trim() ?? searchParams.get("search")?.trim() ?? "";
   const limitParam = Number.parseInt(searchParams.get("limit") ?? "20", 10);
   const offsetParam = Number.parseInt(searchParams.get("offset") ?? "0", 10);
 
@@ -99,6 +101,31 @@ export async function GET(request: NextRequest) {
 
   if (flaggedParam) {
     query = query.eq("is_flagged", true);
+  }
+
+  if (rawSearchParam) {
+    const sanitized = rawSearchParam
+      .replace(/[%_]/g, " ")
+      .replace(/[*,;]/g, " ")
+      .replace(/["']/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (sanitized) {
+      const normalized = sanitized.slice(0, 120);
+      const wildcard = `%${normalized.split(" ").join("%")}%`;
+      query = query.or(
+        [
+          `student_name.ilike.${wildcard}`,
+          `student_email.ilike.${wildcard}`,
+          `student_id.ilike.${wildcard}`,
+          `student_batch.ilike.${wildcard}`,
+          `student_major.ilike.${wildcard}`,
+          `student_phone.ilike.${wildcard}`,
+          `notes.ilike.${wildcard}`,
+        ].join(",")
+      );
+    }
   }
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);

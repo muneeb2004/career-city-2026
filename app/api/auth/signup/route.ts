@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateJWT, hashPassword, UserRole } from "@/lib/auth";
+import { getAdminSettings } from "@/lib/settings";
 
 interface SignupRequestBody {
   email?: string;
@@ -59,7 +60,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const token = await generateJWT(createdUser.id, createdUser.role as UserRole);
+  const adminSettings = await getAdminSettings();
+  const jwtTtlHours = adminSettings.jwtTtlHours;
+  const token = await generateJWT(createdUser.id, createdUser.role as UserRole, `${jwtTtlHours}h`);
 
     const response = NextResponse.json({
       token,
@@ -73,7 +76,7 @@ export async function POST(request: Request) {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: jwtTtlHours * 60 * 60,
     });
 
     return response;

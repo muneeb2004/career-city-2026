@@ -98,6 +98,28 @@ create table if not exists public.student_visits (
 );
 
 
+-- Administrative settings singleton storing global toggles and security controls.
+create table if not exists public.admin_settings (
+  id uuid primary key default gen_random_uuid(),
+  singleton boolean not null default true unique,
+  event_start_at timestamptz,
+  event_end_at timestamptz,
+  announcement_enabled boolean not null default false,
+  announcement_title text,
+  announcement_message text,
+  default_export_scope text not null default 'all',
+  default_export_format text not null default 'csv',
+  session_timeout_minutes integer not null default 45,
+  jwt_ttl_hours integer not null default 24,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.users (id) on delete set null,
+  constraint admin_settings_scope_check check (default_export_scope in ('all', 'flagged')),
+  constraint admin_settings_format_check check (default_export_format in ('csv', 'pdf')),
+  constraint admin_settings_timeout_check check (session_timeout_minutes between 10 and 480),
+  constraint admin_settings_jwt_ttl_check check (jwt_ttl_hours between 1 and 168)
+);
+
+
 -- Helpful indexes.
 create index if not exists idx_corporate_clients_user_id on public.corporate_clients (user_id);
 create index if not exists idx_stalls_floor_id on public.stalls (floor_id);
@@ -111,12 +133,14 @@ alter table public.corporate_clients enable row level security;
 alter table public.floors enable row level security;
 alter table public.stalls enable row level security;
 alter table public.student_visits enable row level security;
+alter table public.admin_settings enable row level security;
 
 alter table public.users force row level security;
 alter table public.corporate_clients force row level security;
 alter table public.floors force row level security;
 alter table public.stalls force row level security;
 alter table public.student_visits force row level security;
+alter table public.admin_settings force row level security;
 
 drop policy if exists "users_super_admin_all" on public.users;
 create policy "users_super_admin_all" on public.users
@@ -252,3 +276,15 @@ create policy "student_visits_corporate_select" on public.student_visits
         and cc.user_id = auth.uid()
     )
   );
+
+-- Admin settings policies.
+drop policy if exists "admin_settings_super_admin_manage" on public.admin_settings;
+create policy "admin_settings_super_admin_manage" on public.admin_settings
+  for all
+  using (auth.jwt()->> 'role' = 'super_admin')
+  with check (auth.jwt()->> 'role' = 'super_admin');
+
+drop policy if exists "admin_settings_staff_read" on public.admin_settings;
+create policy "admin_settings_staff_read" on public.admin_settings
+  for select
+  using (auth.jwt()->> 'role' in ('super_admin', 'staff'));

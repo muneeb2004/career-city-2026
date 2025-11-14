@@ -1,20 +1,8 @@
-export interface FloorStall {
-  id: string;
-  identifier: string;
-  x: number;
-  y: number;
-  corporateClientId: string | null;
-  corporateClientName: string | null;
-}
+import type { NormalizedFloor, NormalizedStall } from "@/lib/types/floors";
 
-export interface FloorViewModel {
-  id: string;
-  name: string;
-  mapImageUrl: string;
-  orderIndex: number;
-  createdAt: string;
-  stalls: FloorStall[];
-}
+export type FloorStall = NormalizedStall;
+
+export type FloorViewModel = NormalizedFloor;
 
 export interface SelectOption {
   id: string;

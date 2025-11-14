@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
+import { normalizeStallRow, type SupabaseStallRow } from "@/lib/types/floors";
 
 async function requireStaffAccess(request: NextRequest) {
   const cookieToken = request.cookies.get("token")?.value;
@@ -21,18 +22,6 @@ async function requireStaffAccess(request: NextRequest) {
     console.error("stalls route token verification failed", error);
     return { error: NextResponse.json({ error: "Invalid token" }, { status: 401 }) } as const;
   }
-}
-
-function mapStallRecord(record: any) {
-  return {
-    id: record.id,
-    identifier: record.stall_identifier,
-    x: Number(record.position?.x ?? 0),
-    y: Number(record.position?.y ?? 0),
-    corporateClientId: record.corporate_client_id ?? null,
-    corporateClientName: record.corporate_client?.company_name ?? null,
-    floorId: record.floor_id,
-  };
 }
 
 export async function POST(request: NextRequest) {
@@ -72,5 +61,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to create stall" }, { status: 500 });
   }
 
-  return NextResponse.json({ stall: mapStallRecord(data) }, { status: 201 });
+  return NextResponse.json(
+    { stall: normalizeStallRow(data as unknown as SupabaseStallRow) },
+    { status: 201 }
+  );
 }

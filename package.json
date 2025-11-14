@@ -16,10 +16,11 @@
     "konva": "^9.3.22",
     "lucide-react": "^0.553.0",
     "next": "16.0.1",
+    "pdfkit": "^0.17.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hot-toast": "^2.6.0",
-    "react-konva": "^18.2.14",
+    "react-konva": "^19.2.0",
     "use-image": "^1.1.4",
     "zustand": "^5.0.8"
   },

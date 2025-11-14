@@ -11,6 +11,7 @@ import {
   Users2,
   Mail,
   Building2,
+  ShieldCheck,
 } from "lucide-react";
 
 export interface StaffDashboardClientProps {
@@ -56,8 +57,15 @@ const navItems: NavigationItem[] = [
     requiresSuperAdmin: true,
   },
   {
+    label: "Admin settings",
+    icon: ShieldCheck,
+    href: "/dashboard/admin/settings",
+    requiresSuperAdmin: true,
+  },
+  {
     label: "Floor & stall management",
     icon: MapIcon,
+    href: "/dashboard/staff/floors",
   },
   {
     label: "Reports",

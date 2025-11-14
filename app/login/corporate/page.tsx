@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, Suspense, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Building2, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { extractErrorMessage, fetchJson } from "@/lib/client/api";
 
-export default function CorporateLoginPage() {
+function CorporateLoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/dashboard/corporate";
@@ -19,24 +20,26 @@ export default function CorporateLoginPage() {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     startTransition(async () => {
+      const loginRequest = async () =>
+        fetchJson<{ token: string }>(
+          "/api/auth/login",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          },
+          "Unable to log in. Check your credentials."
+        );
+
       try {
-        const response = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+        await toast.promise(loginRequest(), {
+          loading: "Signing you in...",
+          success: "Welcome back to Career City!",
+          error: (error) => extractErrorMessage(error, "Unable to log in. Please try again."),
         });
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          toast.error(data.error ?? "Unable to log in. Check your credentials.");
-          return;
-        }
-
-        toast.success("Welcome back to Career City!");
         router.push(redirect);
       } catch (error) {
         console.error("Corporate login error", error);
-        toast.error("Unexpected error during login. Please try again.");
       }
     });
   };
@@ -126,5 +129,13 @@ export default function CorporateLoginPage() {
         </p>
       </motion.section>
     </main>
+  );
+}
+
+export default function CorporateLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <CorporateLoginPageContent />
+    </Suspense>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, Suspense, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { extractErrorMessage, fetchJson } from "@/lib/client/api";
 
-export default function StaffSignupPage() {
+function StaffSignupPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/login/staff";
@@ -25,27 +26,26 @@ export default function StaffSignupPage() {
     }
 
     startTransition(async () => {
+      const signupRequest = async () =>
+        fetchJson<{ token: string }>(
+          "/api/auth/signup",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          },
+          "Unable to complete signup. Please try again."
+        );
+
       try {
-        const response = await fetch("/api/auth/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+        await toast.promise(signupRequest(), {
+          loading: "Creating super admin...",
+          success: "Super Admin account created. You can now sign in.",
+          error: (error) => extractErrorMessage(error, "Unable to complete signup. Please try again."),
         });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          toast.error(
-            data.error ?? "Unable to complete signup. Please try again."
-          );
-          return;
-        }
-
-        toast.success("Super Admin account created. You can now sign in.");
         router.push(redirect);
       } catch (error) {
         console.error("Staff signup error", error);
-        toast.error("Unexpected error during signup. Please try again.");
       }
     });
   };
@@ -149,5 +149,13 @@ export default function StaffSignupPage() {
         </p>
       </motion.section>
     </main>
+  );
+}
+
+export default function StaffSignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <StaffSignupPageContent />
+    </Suspense>
   );
 }

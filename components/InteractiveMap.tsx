@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Group, Circle, Text } from "react-konva";
+import { useEffect, useRef, useState } from "react";
+import { Stage, Layer, Image as KonvaImage, Group, Circle, Text, Label, Tag } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import type Konva from "konva";
+// Dynamic Konva import at runtime; avoid static node canvas requirement.
 import useImage from "use-image";
 
 interface AssignedClientInfo {
@@ -19,7 +19,7 @@ export interface InteractiveMapStall {
   assignedClient?: AssignedClientInfo | null;
 }
 
-interface InteractiveMapProps {
+export interface InteractiveMapProps {
   imageUrl: string | null;
   stalls: InteractiveMapStall[];
   editable?: boolean;
@@ -27,6 +27,9 @@ interface InteractiveMapProps {
   onUpdateMarker?: (id: string, position: { x: number; y: number }) => void;
   onSelectMarker?: (id: string | null) => void;
   selectedMarkerId?: string | null;
+  highlightedMarkerId?: string | null;
+  highlightLabel?: string;
+  highlightColor?: string;
 }
 
 const MARKER_RADIUS = 20;
@@ -84,21 +87,30 @@ export default function InteractiveMap({
   onUpdateMarker,
   onSelectMarker,
   selectedMarkerId,
+  highlightedMarkerId,
+  highlightLabel,
+  highlightColor = "#2563eb",
 }: InteractiveMapProps) {
   const { ref: containerRef, size } = useContainerSize<HTMLDivElement>();
-  const stageRef = useRef<Konva.Stage | null>(null);
+  const stageRef = useRef<any>(null);
   const image = useMapImage(imageUrl);
 
   const [{ scale, x, y }, setStageState] = useState<StageState>({ scale: 1, x: 0, y: 0 });
   const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null);
+  const groupRefs = useRef<Map<string, any>>(new Map());
+  const highlightTweenRef = useRef<any | null>(null);
+  const konvaRef = useRef<any | null>(null);
 
-  const stallsById = useMemo(() => {
-    const map = new Map<string, InteractiveMapStall>();
-    for (const stall of stalls) {
-      map.set(stall.id, stall);
-    }
-    return map;
-  }, [stalls]);
+  useEffect(() => {
+    let mounted = true;
+    import("konva").then((mod) => {
+      if (!mounted) return;
+      konvaRef.current = (mod as any).default || (mod as any);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!stageRef.current) {
@@ -159,7 +171,7 @@ export default function InteractiveMap({
       return;
     }
 
-  const clickedOnEmpty = event.target === stage || event.target?.hasName?.("map-image");
+    const clickedOnEmpty = event.target === stage || event.target?.hasName?.("map-image");
 
     if (!clickedOnEmpty) {
       return;
@@ -213,17 +225,72 @@ export default function InteractiveMap({
       return;
     }
 
-  const isBackground = event.target === stage || event.target?.hasName?.("map-image");
+    const isBackground = event.target === stage || event.target?.hasName?.("map-image");
 
     if (isBackground) {
       onSelectMarker?.(null);
     }
   };
 
+  useEffect(() => {
+    highlightTweenRef.current?.destroy();
+    highlightTweenRef.current = null;
+
+    if (!highlightedMarkerId) {
+      return;
+    }
+
+    const K = konvaRef.current;
+    if (!K) {
+      return;
+    }
+
+    const group = groupRefs.current.get(highlightedMarkerId);
+    if (!group) {
+      return;
+    }
+
+    const pulseCircle = group.findOne(".highlight-circle");
+
+    if (!pulseCircle) {
+      return;
+    }
+
+    pulseCircle.scale({ x: 1, y: 1 });
+    pulseCircle.opacity(0.45);
+
+    const tween = new K.Tween({
+      node: pulseCircle,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      opacity: 0.1,
+      duration: 0.9,
+      easing: K.Easings.EaseInOut,
+      yoyo: true,
+      repeat: Infinity,
+    });
+
+    tween.play();
+    highlightTweenRef.current = tween;
+
+    return () => {
+      tween.destroy();
+      pulseCircle.scale({ x: 1, y: 1 });
+      pulseCircle.opacity(0.45);
+    };
+  }, [highlightColor, highlightedMarkerId, stalls]);
+
+  useEffect(() => {
+    return () => {
+      highlightTweenRef.current?.destroy();
+      highlightTweenRef.current = null;
+    };
+  }, []);
+
   return (
     <div ref={containerRef} className="relative h-[520px] w-full overflow-hidden rounded-3xl border border-white/30 bg-white/60 shadow-inner">
       <Stage
-        ref={(instance: Konva.Stage | null) => {
+        ref={(instance: any | null) => {
           stageRef.current = instance;
         }}
         width={size.width}
@@ -264,12 +331,20 @@ export default function InteractiveMap({
 
           {stalls.map((stall) => {
             const isSelected = stall.id === selectedMarkerId;
-            const fill = stall.assignedClient ? "#22c55e" : "#9ca3af";
-            const stroke = isSelected ? "#2563eb" : "#ffffff";
+            const isHighlighted = stall.id === highlightedMarkerId;
+            const fill = isHighlighted ? "#38bdf8" : stall.assignedClient ? "#22c55e" : "#9ca3af";
+            const stroke = isHighlighted ? highlightColor : isSelected ? "#2563eb" : "#ffffff";
 
             return (
               <Group
                 key={stall.id}
+                ref={(node) => {
+                  if (node) {
+                    groupRefs.current.set(stall.id, node);
+                  } else {
+                    groupRefs.current.delete(stall.id);
+                  }
+                }}
                 x={stall.x}
                 y={stall.y}
                 draggable={editable}
@@ -278,12 +353,23 @@ export default function InteractiveMap({
                 onClick={(event: KonvaEventObject<MouseEvent>) => handleMarkerClick(stall.id, event)}
                 onTap={(event: KonvaEventObject<TouchEvent>) => handleMarkerClick(stall.id, event)}
               >
+                {isHighlighted && (
+                  <Circle
+                    name="highlight-circle"
+                    radius={MARKER_RADIUS + 14}
+                    stroke={highlightColor}
+                    strokeWidth={4}
+                    opacity={0.45}
+                    listening={false}
+                    shadowBlur={24}
+                  />
+                )}
                 <Circle
                   radius={MARKER_RADIUS}
                   fill={fill}
                   stroke={stroke}
-                  strokeWidth={isSelected ? 4 : 2}
-                  shadowBlur={isSelected ? 16 : 6}
+                  strokeWidth={isSelected || isHighlighted ? 4 : 2}
+                  shadowBlur={isSelected || isHighlighted ? 16 : 6}
                 />
                 <Text
                   text={stall.identifier}
@@ -305,6 +391,19 @@ export default function InteractiveMap({
                     offsetX={70}
                     offsetY={-MARKER_RADIUS - 18}
                   />
+                )}
+                {isHighlighted && (
+                  <Label y={-MARKER_RADIUS - 52} offsetX={70} listening={false}>
+                    <Tag fill={highlightColor} opacity={0.9} cornerRadius={12} />
+                    <Text
+                      text={highlightLabel ?? "You are here"}
+                      fontSize={12}
+                      fontStyle="bold"
+                      fill="#f8fafc"
+                      padding={8}
+                      align="center"
+                    />
+                  </Label>
                 )}
               </Group>
             );

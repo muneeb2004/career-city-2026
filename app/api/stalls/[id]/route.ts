@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
+import { normalizeStallRow, type SupabaseStallRow } from "@/lib/types/floors";
 
 async function requireStaffAccess(request: NextRequest) {
   const cookieToken = request.cookies.get("token")?.value;
@@ -21,18 +22,6 @@ async function requireStaffAccess(request: NextRequest) {
     console.error("stall detail token verification failed", error);
     return { error: NextResponse.json({ error: "Invalid token" }, { status: 401 }) } as const;
   }
-}
-
-function mapStallRecord(record: any) {
-  return {
-    id: record.id,
-    identifier: record.stall_identifier,
-    x: Number(record.position?.x ?? 0),
-    y: Number(record.position?.y ?? 0),
-    corporateClientId: record.corporate_client_id ?? null,
-    corporateClientName: record.corporate_client?.company_name ?? null,
-    floorId: record.floor_id,
-  };
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -82,7 +71,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "Unable to update stall" }, { status: 500 });
   }
 
-  return NextResponse.json({ stall: mapStallRecord(data) });
+  return NextResponse.json({ stall: normalizeStallRow(data as unknown as SupabaseStallRow) });
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

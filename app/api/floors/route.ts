@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
+import { normalizeFloorRow, type SupabaseFloorRow } from "@/lib/types/floors";
 
 async function requireStaffAccess(request: NextRequest) {
   const cookieToken = request.cookies.get("token")?.value;
@@ -21,24 +22,6 @@ async function requireStaffAccess(request: NextRequest) {
     console.error("floors route token verification failed", error);
     return { error: NextResponse.json({ error: "Invalid token" }, { status: 401 }) } as const;
   }
-}
-
-function mapFloorRecord(record: any) {
-  return {
-    id: record.id,
-    name: record.name,
-    mapImageUrl: record.map_image_url ?? "",
-    orderIndex: record.order_index ?? 0,
-    createdAt: record.created_at,
-    stalls: (record.stalls ?? []).map((stall: any) => ({
-      id: stall.id,
-      identifier: stall.stall_identifier,
-      x: Number(stall.position?.x ?? 0),
-      y: Number(stall.position?.y ?? 0),
-      corporateClientId: stall.corporate_client_id ?? null,
-      corporateClientName: stall.corporate_client?.company_name ?? null,
-    })),
-  };
 }
 
 export async function GET(request: NextRequest) {
@@ -63,7 +46,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unable to load floors" }, { status: 500 });
   }
 
-  return NextResponse.json({ floors: (data ?? []).map(mapFloorRecord) });
+  const floors = (data ?? []).map((row) => normalizeFloorRow(row as unknown as SupabaseFloorRow));
+
+  return NextResponse.json({ floors });
 }
 
 export async function POST(request: NextRequest) {
@@ -108,5 +93,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to create floor" }, { status: 500 });
   }
 
-  return NextResponse.json({ floor: mapFloorRecord(data) }, { status: 201 });
+  return NextResponse.json(
+    { floor: normalizeFloorRow(data as unknown as SupabaseFloorRow) },
+    { status: 201 }
+  );
 }

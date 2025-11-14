@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Download, Flag, Mail, MapPin, CalendarClock } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-hot-toast";
@@ -55,6 +56,16 @@ function extractFilename(headerValue: string | null, fallback: string) {
 export default function ClientDetailView({ client, visits, role }: StaffClientDetailProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastFocusedElement = useRef<HTMLElement | null>(null);
+  const viewerRoleLabel = role === "super_admin" ? "Super admin view" : "Staff view";
+  useEffect(() => {
+    if (showMap) {
+      closeButtonRef.current?.focus();
+    } else {
+      lastFocusedElement.current?.focus({ preventScroll: true });
+    }
+  }, [showMap]);
 
   const flaggedStudents = useMemo(() => visits.filter((visit) => visit.isFlagged), [visits]);
 
@@ -98,6 +109,9 @@ export default function ClientDetailView({ client, visits, role }: StaffClientDe
           <div>
             <p className="text-xs uppercase tracking-wide text-primary">Client profile</p>
             <h1 className="text-3xl font-semibold text-text">{client.companyName}</h1>
+            <p className="sr-only" role="status" aria-live="polite">
+              {viewerRoleLabel}
+            </p>
             <p className="mt-2 text-sm text-text/70">
               Stall {client.stallNumber ?? "TBD"} • {client.floor?.name ?? "Floor assignment pending"}
             </p>
@@ -106,7 +120,10 @@ export default function ClientDetailView({ client, visits, role }: StaffClientDe
             {client.floor?.mapImageUrl && (
               <button
                 type="button"
-                onClick={() => setShowMap(true)}
+                onClick={() => {
+                  lastFocusedElement.current = document.activeElement as HTMLElement;
+                  setShowMap(true);
+                }}
                 className="inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-2 text-sm font-semibold text-primary transition hover:border-primary/40 hover:text-primary/80"
               >
                 <MapPin className="h-4 w-4" /> View stall map
@@ -268,6 +285,14 @@ export default function ClientDetailView({ client, visits, role }: StaffClientDe
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stall-map-heading"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setShowMap(false);
+              }
+            }}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -276,16 +301,30 @@ export default function ClientDetailView({ client, visits, role }: StaffClientDe
               transition={{ duration: 0.2 }}
               className="relative w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl"
             >
+              <h2 id="stall-map-heading" className="sr-only">
+                Stall map for {client.companyName}
+              </h2>
               <button
                 type="button"
+                ref={closeButtonRef}
                 onClick={() => setShowMap(false)}
-                className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
+                className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                 aria-label="Close map"
               >
                 X
               </button>
               <div className="relative max-h-[80vh] overflow-auto">
-                <img src={client.floor.mapImageUrl} alt={`Floor map for ${client.companyName}`} className="w-full" />
+                <div className="relative h-full w-full min-h-[320px]">
+                  <Image
+                    src={client.floor.mapImageUrl}
+                    alt={`Floor map for ${client.companyName}`}
+                    fill
+                    className="object-contain"
+                    sizes="(min-width: 1024px) 768px, 90vw"
+                    placeholder="blur"
+                    blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg=="
+                  />
+                </div>
               </div>
             </motion.div>
           </motion.div>

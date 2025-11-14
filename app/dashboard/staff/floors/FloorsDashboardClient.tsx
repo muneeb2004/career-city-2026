@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Loader2, Map, Pencil, PlusCircle, Trash2, UploadCloud } from "lucide-react";
-import InteractiveMap, { type InteractiveMapStall } from "@/components/InteractiveMap";
 import { readFileAsDataUrl } from "@/lib/client/files";
-import type { FloorViewModel, FloorStall, SelectOption } from "@/app/dashboard/staff/floors/types";
+import type { FloorViewModel, SelectOption } from "@/app/dashboard/staff/floors/types";
+import type { InteractiveMapProps, InteractiveMapStall } from "@/components/InteractiveMap";
+
+const InteractiveMap = dynamic<InteractiveMapProps>(
+  () => import("@/components/InteractiveMap"),
+  { ssr: false }
+);
 
 export interface FloorsDashboardClientProps {
   role: "super_admin" | "staff";
@@ -15,7 +21,6 @@ export interface FloorsDashboardClientProps {
 }
 
 type EditableFloorState = FloorViewModel;
-type EditableStallState = FloorStall;
 
 export default function FloorsDashboardClient({ role, floors, clients }: FloorsDashboardClientProps) {
   const router = useRouter();

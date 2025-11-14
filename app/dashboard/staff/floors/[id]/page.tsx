@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -5,11 +6,31 @@ import { verifyJWT } from "@/lib/auth";
 import FloorEditorClient, {
   type FloorEditorClientProps,
 } from "@/app/dashboard/staff/floors/FloorEditorClient";
+import {
+  normalizeFloorRow,
+  type SupabaseCorporateClientRow,
+  type SupabaseFloorRow,
+} from "@/lib/types/floors";
 
 export const dynamic = "force-dynamic";
 
 interface FloorDetailPageProps {
   params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: FloorDetailPageProps): Promise<Metadata> {
+  const { id } = await params;
+  return {
+    title: "Floor Detail",
+    description: "Edit stall placements and assignments for a specific floor within Career City 2026.",
+    alternates: {
+      canonical: `/dashboard/staff/floors/${id}`,
+    },
+    robots: {
+      index: false,
+      follow: false,
+    },
+  };
 }
 
 export default async function FloorDetailPage({ params }: FloorDetailPageProps) {
@@ -63,26 +84,15 @@ export default async function FloorDetailPage({ params }: FloorDetailPageProps) 
     console.error("Failed to load corporate clients for floor detail", clientsError);
   }
 
-  const floor: FloorEditorClientProps["floor"] = {
-    id: floorRecord.id,
-    name: floorRecord.name,
-    mapImageUrl: floorRecord.map_image_url ?? "",
-    orderIndex: floorRecord.order_index ?? 0,
-    createdAt: floorRecord.created_at,
-    stalls: (floorRecord.stalls ?? []).map((stall: any) => ({
-      id: stall.id,
-      identifier: stall.stall_identifier,
-      x: Number(stall.position?.x ?? 0),
-      y: Number(stall.position?.y ?? 0),
-      corporateClientId: stall.corporate_client_id ?? null,
-      corporateClientName: stall.corporate_client?.company_name ?? null,
-    })),
-  };
+  const floor = normalizeFloorRow(floorRecord as unknown as SupabaseFloorRow);
 
-  const clients: FloorEditorClientProps["clients"] = (corporateClients ?? []).map((client: any) => ({
-    id: client.id,
-    companyName: client.company_name,
-  }));
+  const clients: FloorEditorClientProps["clients"] = (corporateClients ?? []).map((client) => {
+    const row = client as SupabaseCorporateClientRow;
+    return {
+      id: row.id,
+      companyName: row.company_name ?? "",
+    };
+  });
 
   return <FloorEditorClient role={staffRole} floor={floor} clients={clients} />;
 }
