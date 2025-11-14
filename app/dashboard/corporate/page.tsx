@@ -6,7 +6,7 @@ import CorporateDashboardClient, {
   type StudentVisitUi,
 } from "./CorporateDashboardClient";
 import { verifyJWT } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { getAdminSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -50,10 +50,11 @@ export default async function CorporateDashboardPage() {
     1
   ) * 60 * 1000;
 
+  const supabase = getSupabaseAdminClient();
   const {
     data: corporateClient,
     error: corporateError,
-  } = await supabaseAdmin
+  } = await supabase
     .from("corporate_clients")
     .select("id, company_name, stall_number, stall_position")
     .eq("user_id", payload.sub)
@@ -80,7 +81,7 @@ export default async function CorporateDashboardPage() {
   const {
     data: stall,
     error: stallError,
-  } = await supabaseAdmin
+  } = await supabase
   .from("stalls")
   .select("id, stall_identifier, position, floor:floors(id, name, map_image_url)")
     .eq("corporate_client_id", corporateClient.id)
@@ -90,7 +91,7 @@ export default async function CorporateDashboardPage() {
     console.error("Failed to load stall information", stallError);
   }
 
-  let visitsQuery = supabaseAdmin
+  let visitsQuery = supabase
     .from("student_visits")
     .select(
       "id, student_name, student_id, student_email, student_phone, student_batch, student_major, notes, is_flagged, visited_at",

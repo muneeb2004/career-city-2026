@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { hashPassword, verifyJWT, UserRole } from "@/lib/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,7 +26,8 @@ async function requireSuperAdmin(request: NextRequest) {
 }
 
 async function superAdminCount(excludeId?: string) {
-  let query = supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("role", "super_admin");
+  const supabase = getSupabaseAdminClient();
+  let query = supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "super_admin");
 
   if (excludeId) {
     query = query.neq("id", excludeId);
@@ -60,7 +61,8 @@ export async function PATCH(
 
   const targetId = params.id;
 
-  const { data: existingUser, error: fetchError } = await supabaseAdmin
+  const supabase2 = getSupabaseAdminClient();
+  const { data: existingUser, error: fetchError } = await supabase2
     .from("users")
     .select("id, email, role, created_at")
     .eq("id", targetId)
@@ -92,7 +94,8 @@ export async function PATCH(
     }
 
     if (nextEmail !== existingUser.email) {
-      const { data: conflict, error: conflictError } = await supabaseAdmin
+      const supabase3 = getSupabaseAdminClient();
+      const { data: conflict, error: conflictError } = await supabase3
         .from("users")
         .select("id")
         .eq("email", nextEmail)
@@ -146,7 +149,8 @@ export async function PATCH(
     return NextResponse.json({ error: "No fields to update." }, { status: 400 });
   }
 
-  const { data: updatedUser, error: updateError } = await supabaseAdmin
+  const supabase4 = getSupabaseAdminClient();
+  const { data: updatedUser, error: updateError } = await supabase4
     .from("users")
     .update(updatePayload)
     .eq("id", targetId)
@@ -181,7 +185,8 @@ export async function DELETE(
     );
   }
 
-  const { data: existingUser, error: fetchError } = await supabaseAdmin
+  const supabase5 = getSupabaseAdminClient();
+  const { data: existingUser, error: fetchError } = await supabase5
     .from("users")
     .select("id, role")
     .eq("id", targetId)
@@ -210,7 +215,8 @@ export async function DELETE(
     }
   }
 
-  const { error: deleteError } = await supabaseAdmin.from("users").delete().eq("id", targetId);
+  const supabase6 = getSupabaseAdminClient();
+  const { error: deleteError } = await supabase6.from("users").delete().eq("id", targetId);
 
   if (deleteError) {
     console.error("Failed to delete staff user", deleteError);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import { normalizeFloorRow, type SupabaseFloorRow } from "@/lib/types/floors";
 
@@ -51,7 +51,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("floors")
     .update(updates)
     .eq("id", id)
@@ -79,7 +80,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
 
-  const { error } = await supabaseAdmin.from("floors").delete().eq("id", id);
+  const supabase2 = getSupabaseAdminClient();
+  const { error } = await supabase2.from("floors").delete().eq("id", id);
 
   if (error) {
     console.error("Failed to delete floor", error);

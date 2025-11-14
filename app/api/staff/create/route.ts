@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { hashPassword, verifyJWT, UserRole } from "@/lib/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid role selection." }, { status: 400 });
   }
 
-  const { data: existingUser, error: existingError } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data: existingUser, error: existingError } = await supabase
     .from("users")
     .select("id")
     .eq("email", email)
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   const passwordHash = await hashPassword(password);
 
-  const { data: createdUser, error: createError } = await supabaseAdmin
+  const { data: createdUser, error: createError } = await supabase
     .from("users")
     .insert({
       email,

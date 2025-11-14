@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import FloorsDashboardClient, {
   type FloorsDashboardClientProps,
@@ -48,7 +48,8 @@ export default async function FloorsDashboardPage() {
 
   const staffRole = payload.role as "super_admin" | "staff";
 
-  const { data: floorRecords, error: floorsError } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data: floorRecords, error: floorsError } = await supabase
     .from("floors")
     .select(
       `id, name, map_image_url, order_index, created_at,
@@ -63,7 +64,7 @@ export default async function FloorsDashboardPage() {
     console.error("Failed to load floor records", floorsError);
   }
 
-  const { data: corporateClients, error: clientsError } = await supabaseAdmin
+  const { data: corporateClients, error: clientsError } = await supabase
     .from("corporate_clients")
     .select("id, company_name")
     .order("company_name", { ascending: true });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import { normalizeStallRow, type SupabaseStallRow } from "@/lib/types/floors";
 
@@ -56,7 +56,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("stalls")
     .update(updates)
     .eq("id", id)
@@ -82,7 +83,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
 
-  const { error } = await supabaseAdmin.from("stalls").delete().eq("id", id);
+  const supabase2 = getSupabaseAdminClient();
+  const { error } = await supabase2.from("stalls").delete().eq("id", id);
 
   if (error) {
     console.error("Failed to delete stall", error);

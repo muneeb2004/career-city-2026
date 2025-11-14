@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 
 async function requireStaffAccess(request: NextRequest) {
@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
     return auth.error;
   }
 
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("users")
     .select("id, email, role, created_at")
     .in("role", ["super_admin", "staff"])

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 
 interface StudentVisitPayload {
   corporate_client_id?: string;
@@ -48,7 +48,8 @@ async function authenticate(request: NextRequest) {
 }
 
 async function resolveCorporateId(userId: string) {
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("corporate_clients")
     .select("id")
     .eq("user_id", userId)
@@ -143,7 +144,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { data: insertResult, error: insertError } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data: insertResult, error: insertError } = await supabase
     .from("student_visits")
     .insert({
       corporate_client_id: targetCorporateId,

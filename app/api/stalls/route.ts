@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import { normalizeStallRow, type SupabaseStallRow } from "@/lib/types/floors";
 
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("stalls")
     .insert({
       floor_id: floorId,

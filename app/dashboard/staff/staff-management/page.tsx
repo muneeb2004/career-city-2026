@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import StaffManagementClient, {
   type StaffManagementProps,
@@ -28,7 +28,8 @@ export default async function StaffManagementPage() {
     redirect("/dashboard/staff");
   }
 
-  const { data: staffMembers, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data: staffMembers, error } = await supabase
     .from("users")
     .select("id, email, role, created_at")
     .in("role", ["super_admin", "staff"])

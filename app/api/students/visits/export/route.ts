@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 
 const VISIT_SELECT_COLUMNS =
   "student_name, student_id, student_email, student_phone, student_batch, student_major, notes, is_flagged, visited_at, corporate_client_id";
@@ -24,7 +24,8 @@ async function authenticate(request: NextRequest) {
 }
 
 async function resolveCorporateId(userId: string) {
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("corporate_clients")
     .select("id, company_name")
     .eq("user_id", userId)
@@ -89,7 +90,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  let query = supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  let query = supabase
     .from("student_visits")
     .select(VISIT_SELECT_COLUMNS)
     .eq("corporate_client_id", targetCorporateId)

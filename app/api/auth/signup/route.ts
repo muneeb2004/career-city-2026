@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { generateJWT, hashPassword, UserRole } from "@/lib/auth";
 import { getAdminSettings } from "@/lib/settings";
 
@@ -10,6 +10,7 @@ interface SignupRequestBody {
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabaseAdminClient();
     const body = (await request.json()) as SignupRequestBody;
     const email = body.email?.trim().toLowerCase();
     const password = body.password?.trim();
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { count, error: countError } = await supabaseAdmin
+    const { count, error: countError } = await supabase
       .from("users")
       .select("id", { count: "exact", head: true });
 
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
 
     const passwordHash = await hashPassword(password);
 
-    const { data: createdUser, error: createError } = await supabaseAdmin
+    const { data: createdUser, error: createError } = await supabase
       .from("users")
       .insert({
         email,

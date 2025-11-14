@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { comparePassword, generateJWT, UserRole } from "@/lib/auth";
 import { getAdminSettings } from "@/lib/settings";
 
@@ -10,6 +10,7 @@ interface LoginRequestBody {
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabaseAdminClient();
     const body = (await request.json()) as LoginRequestBody;
     const email = body.email?.trim().toLowerCase();
     const password = body.password?.trim();
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: user, error } = await supabaseAdmin
+    const { data: user, error } = await supabase
       .from("users")
       .select("id, password_hash, role")
       .eq("email", email)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 
 const VISIT_SELECT_COLUMNS =
   "id, corporate_client_id, student_name, student_id, student_email, student_phone, student_batch, student_major, notes, is_flagged, visited_at";
@@ -36,7 +36,8 @@ async function authenticate(request: NextRequest) {
 }
 
 async function resolveCorporateId(userId: string) {
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("corporate_clients")
     .select("id")
     .eq("user_id", userId)
@@ -55,7 +56,8 @@ async function resolveCorporateId(userId: string) {
 }
 
 async function assertOwnership(visitId: string, userRole: string, userId: string) {
-  const { data: visitRecord, error } = await supabaseAdmin
+  const supabase2 = getSupabaseAdminClient();
+  const { data: visitRecord, error } = await supabase2
     .from("student_visits")
     .select("id, corporate_client_id")
     .eq("id", visitId)
@@ -165,7 +167,8 @@ export async function PATCH(
     is_flagged: Boolean(updates.is_flagged),
   };
 
-  const { data, error } = await supabaseAdmin
+  const supabase3 = getSupabaseAdminClient();
+  const { data, error } = await supabase3
     .from("student_visits")
     .update(payloadToApply)
     .eq("id", id)
@@ -204,7 +207,8 @@ export async function DELETE(
     return ownership.error;
   }
 
-  const { error } = await supabaseAdmin.from("student_visits").delete().eq("id", id);
+  const supabase4 = getSupabaseAdminClient();
+  const { error } = await supabase4.from("student_visits").delete().eq("id", id);
 
   if (error) {
     console.error("Failed to delete student visit", error);

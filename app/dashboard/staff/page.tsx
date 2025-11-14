@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import StaffDashboardClient, {
   type StaffDashboardClientProps,
@@ -30,7 +30,8 @@ export default async function StaffDashboardPage() {
 
   const staffRole = payload.role as "super_admin" | "staff";
 
-  const { data: corporateClients, error: clientsError } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data: corporateClients, error: clientsError } = await supabase
     .from("corporate_clients")
     .select("id, company_name, stall_number, user_id, created_at")
     .order("company_name", { ascending: true });
@@ -46,10 +47,10 @@ export default async function StaffDashboardPage() {
   const [{ data: userRecords, error: usersError }, { data: visitRecords, error: visitsError }] =
     await Promise.all([
       userIds.length
-        ? supabaseAdmin.from("users").select("id, email").in("id", userIds)
+        ? supabase.from("users").select("id, email").in("id", userIds)
         : Promise.resolve({ data: [] as { id: string; email: string }[], error: null }),
       clientIds.length
-        ? supabaseAdmin
+        ? supabase
             .from("student_visits")
             .select("corporate_client_id, is_flagged")
             .in("corporate_client_id", clientIds)

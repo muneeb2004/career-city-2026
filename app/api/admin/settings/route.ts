@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import {
   DEFAULT_ADMIN_SETTINGS,
   type ExportFormat,
@@ -184,7 +184,8 @@ export async function PUT(request: NextRequest) {
   };
 
   try {
-    const { data, error } = await supabaseAdmin
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
       .from("admin_settings")
       .upsert(updates, { onConflict: "singleton" })
       .select(SETTINGS_SELECT_COLUMNS)

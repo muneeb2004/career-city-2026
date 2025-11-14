@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import { normalizeFloorRow, type SupabaseFloorRow } from "@/lib/types/floors";
 
@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
     return auth.error;
   }
 
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("floors")
     .select(
       `id, name, map_image_url, order_index, created_at,
@@ -57,6 +58,8 @@ export async function POST(request: NextRequest) {
     return auth.error;
   }
 
+  const supabase = getSupabaseAdminClient();
+
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : null;
 
@@ -64,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Floor name is required" }, { status: 400 });
   }
 
-  const { data: orderRecords, error: orderError } = await supabaseAdmin
+  const { data: orderRecords, error: orderError } = await supabase
     .from("floors")
     .select("order_index")
     .order("order_index", { ascending: false })
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
 
   const nextOrderIndex = (orderRecords?.[0]?.order_index ?? 0) + 1;
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from("floors")
     .insert({ name, map_image_url: "", order_index: nextOrderIndex })
     .select(

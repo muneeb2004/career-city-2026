@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyJWT } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import CorporateMapClient from "./CorporateMapClient";
 import type { FloorViewModel } from "@/app/dashboard/staff/floors/types";
 import { normalizeFloorRow, type SupabaseFloorRow } from "@/lib/types/floors";
@@ -42,10 +42,11 @@ export default async function CorporateMapPage() {
     redirect("/welcome");
   }
 
+  const supabase = getSupabaseAdminClient();
   const {
     data: corporateClient,
     error: corporateError,
-  } = await supabaseAdmin
+  } = await supabase
     .from("corporate_clients")
     .select("id, company_name")
     .eq("user_id", payload.sub)
@@ -72,7 +73,7 @@ export default async function CorporateMapPage() {
   const {
     data: floorsData,
     error: floorsError,
-  } = await supabaseAdmin
+  } = await supabase
     .from("floors")
     .select(
       `id, name, map_image_url, order_index, created_at,

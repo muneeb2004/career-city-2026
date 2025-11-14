@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { StaffAuthShell } from "@/app/login/staff/shell";
 import StaffLoginPanel from "@/app/login/staff/StaffLoginPanel";
 import SuperAdminSetupPanel from "@/app/login/staff/SuperAdminSetupPanel";
@@ -15,7 +15,8 @@ export default async function StaffLoginPage({
   const redirectParam =
     (typeof searchParams?.redirect === "string" && searchParams.redirect) || "/dashboard/staff";
 
-  const { count, error } = await supabaseAdmin
+  const supabase = getSupabaseAdminClient();
+  const { count, error } = await supabase
     .from("users")
     .select("id", { count: "exact", head: true });
 

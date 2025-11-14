@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect, notFound } from "next/navigation";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabase";
 import { verifyJWT } from "@/lib/auth";
 import ClientDetailView, {
   type StaffClientDetailProps,
@@ -36,10 +36,11 @@ export default async function StaffClientDetailPage({ params }: StaffClientDetai
 
   const corporateId = params.id;
 
+  const supabase = getSupabaseAdminClient();
   const {
     data: corporateClient,
     error: clientError,
-  } = await supabaseAdmin
+  } = await supabase
     .from("corporate_clients")
     .select("id, company_name, stall_number, stall_position, user_id, created_at")
     .eq("id", corporateId)
@@ -54,17 +55,17 @@ export default async function StaffClientDetailPage({ params }: StaffClientDetai
   }
 
   const [{ data: contactUser }, { data: stallRecord }, { data: visits }] = await Promise.all([
-    supabaseAdmin
+    supabase
       .from("users")
       .select("id, email")
       .eq("id", corporateClient.user_id)
       .maybeSingle(),
-    supabaseAdmin
+    supabase
       .from("stalls")
       .select("id, stall_identifier, position, floor:floors(id, name, map_image_url)")
       .eq("corporate_client_id", corporateClient.id)
       .maybeSingle(),
-    supabaseAdmin
+    supabase
       .from("student_visits")
       .select(
         "id, student_name, student_id, student_email, student_phone, student_batch, student_major, notes, is_flagged, visited_at"

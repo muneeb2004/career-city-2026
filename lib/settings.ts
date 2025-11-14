@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "./supabase";
+import { getSupabaseAdminClient } from "./supabase";
 import {
   AdminSettings,
   DEFAULT_ADMIN_SETTINGS,
@@ -56,7 +56,8 @@ export function normalizeAdminSettingsRow(row: Record<string, unknown> | null): 
 
 export async function getAdminSettings(): Promise<AdminSettings> {
   try {
-    const { data, error } = await supabaseAdmin
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
       .from("admin_settings")
       .select(SETTINGS_SELECT_COLUMNS)
       .order("updated_at", { ascending: false })
@@ -72,7 +73,7 @@ export async function getAdminSettings(): Promise<AdminSettings> {
   return normalizeAdminSettingsRow(data as Record<string, unknown>);
     }
 
-    const { data: inserted, error: insertError } = await supabaseAdmin
+    const { data: inserted, error: insertError } = await supabase
       .from("admin_settings")
       .insert(SETTINGS_INSERT_DEFAULT)
       .select(SETTINGS_SELECT_COLUMNS)
@@ -81,7 +82,7 @@ export async function getAdminSettings(): Promise<AdminSettings> {
     if (insertError) {
       // Handle race condition when another request inserted simultaneously.
       if (insertError.code === "23505") {
-        const { data: retryRow } = await supabaseAdmin
+        const { data: retryRow } = await supabase
           .from("admin_settings")
           .select(SETTINGS_SELECT_COLUMNS)
           .order("updated_at", { ascending: false })
